@@ -1,0 +1,1 @@
+from infrastructure.tasks.consume_and_send_to_user import consume_and_send_to_user

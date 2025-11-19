@@ -1,0 +1,1 @@
+from infrastructure.transport.message_queue import message_queue

@@ -1,0 +1,1 @@
+from infrastructure.dependency_injector.dependecies_container import DependenciesContainer

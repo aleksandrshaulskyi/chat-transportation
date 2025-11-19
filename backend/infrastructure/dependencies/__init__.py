@@ -1,0 +1,1 @@
+from infrastructure.dependencies.authentication import retrieve_user_id, retrieve_user_id_from_pass
