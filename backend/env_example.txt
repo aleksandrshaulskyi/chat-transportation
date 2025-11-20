@@ -13,4 +13,4 @@ WEBSOCKETS_EXCHANGE_NAME=Name of RabbitMQ exchange. It is defined in definitions
 DATABASE_EXCHANGE_NAME=Name of RabbitMQ exchange. It is defined in definitions.json in another repository (chat-shared-services).
 
 You should delete or rename the last two variables if you use this microservice without other services of the chat system.
-Should you do so modify the settings file in the backend directory.
+Should you do so modify the settings file in the backend directory as well.
