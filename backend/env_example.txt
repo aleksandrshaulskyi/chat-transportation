@@ -1,0 +1,16 @@
+#SECURITY
+KEY=The key that will be used to decode the JWT issued by authentication service. Should be the same to the one that was used to encode them.
+ALGORITHM=The algorithm that was used to encode JWT.
+CONNECTION_PASS_LENGTH=The length of the connection passes that are issued by the service.
+CONNECTION_PASS_EXPIRATION_TIME=TTL of a one-time connection pass in Redis.
+
+#REDIS
+REDIS_URL=Redis URL.
+
+#RABBITMQ
+RABBITMQ_URL=RabbitMQ URL.
+WEBSOCKETS_EXCHANGE_NAME=Name of RabbitMQ exchange. It is defined in definitions.json in another repository (chat-shared-services).
+DATABASE_EXCHANGE_NAME=Name of RabbitMQ exchange. It is defined in definitions.json in another repository (chat-shared-services).
+
+You should delete or rename the last two variables if you use this microservice without other services of the chat system.
+Should you do so modify the settings file in the backend directory.
