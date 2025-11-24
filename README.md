@@ -41,6 +41,8 @@ It consists of 4 layers which are:
 
 ## Recent updates.
 
+**24.11.2025**
+
 **Major**
 
 Added the monitoring of some vital metrics such as:
