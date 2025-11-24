@@ -2,6 +2,7 @@ from json import JSONDecodeError
 
 from fastapi import WebSocket
 
+from infrastructure.monitoring import websocket_hub_active_connections
 from application.ports import WebSocketHubPort
 
 
@@ -29,6 +30,7 @@ class WebSocketHub(WebSocketHubPort):
         """
         await websocket.accept()
         self.connections.update({user_id: websocket})
+        websocket_hub_active_connections.add(amount=1)
 
     async def receive(self, websocket: WebSocket) -> dict | None:
         """
@@ -63,4 +65,5 @@ class WebSocketHub(WebSocketHubPort):
             user_id (int): An id of a user that has disconnected from the websocket endpoint.
         """
         if (websocket := self.connections.pop(user_id)) is not None:
+            websocket_hub_active_connections.add(amount=-1)
             await websocket.close()

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     channel_prefetch_messages_count: int = 16
     #CORS
     cors_origins: list = ['http://localhost:3000']
+    #METRICS
+    opentelemetry_collector_url: str = Field(validation_alias='OPENTELEMETRY_COLLECTOR_URL')
+    service_name: str = Field(validation_alias='SERVICE_NAME')
 
     model_config = {
         'env_file': './env',
