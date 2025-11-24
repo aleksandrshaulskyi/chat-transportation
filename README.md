@@ -41,7 +41,23 @@ It consists of 4 layers which are:
 
 ## Recent updates.
 
-None yet released.
+**Major**
+
+Added the monitoring of some vital metrics such as:
+1) The amount of the requests per second.
+2) Latency for 95% and 99% of requests.
+3) The amount of the requests that were responded with 4xx or 5xx status codes.
+4) The amount of active connections to the websocket hub.
+
+This was implemented using the popular monitoring stack of **Opentelemetry** | **Prometheus** | **Grafana**.
+
+**More information here:** https://github.com/aleksandrshaulskyi/chat-monitoring.
+
+**Minor**
+
+Added small fixes.
+
+**Pull request:** https://github.com/aleksandrshaulskyi/chat-transportation/pull/1
 
 ## Docs.
 
