@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     #METRICS
     opentelemetry_collector_url: str = Field(validation_alias='OPENTELEMETRY_COLLECTOR_URL')
     service_name: str = Field(validation_alias='SERVICE_NAME')
+    #LOGGING
+    messages_logger_name: str = 'application.messages'
 
     model_config = {
         'env_file': './env',
