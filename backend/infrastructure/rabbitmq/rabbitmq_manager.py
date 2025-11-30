@@ -1,13 +1,6 @@
-
-
-
-
-
-
-
-
 from asyncio import CancelledError, create_task, QueueFull
 from contextlib import suppress
+from logging import getLogger
 from json import dumps
 
 from aio_pika import AMQPException as AioPikaException, connect_robust, Exchange, ExchangeType, Message
@@ -41,6 +34,7 @@ class RabbitMQManager(RabbitMQManagerPort):
         self.database_exchange: Exchange = None
         self.user_channels = {}
         self.user_tasks = {}
+        self.logger = getLogger(settings.messages_logger_name)
 
     async def start(self) -> None:
         """
@@ -91,8 +85,11 @@ class RabbitMQManager(RabbitMQManagerPort):
                             await message_queue.put(decoded_message)
                     except QueueFull:
                         await message.nack(requeue=True)
-        except (AioPikaException, AioRMQException):
-            pass  #duct tape until proper logging and reconnect
+        except (AioPikaException, AioRMQException) as exception:
+            self.logger.error(
+                'RabbitMQ ephemeral queue error.',
+                extra={'user_id': user_id, 'event_type': f'Ephemeral queue connection error: {exception}'},
+            )
         except CancelledError:
             raise
    
