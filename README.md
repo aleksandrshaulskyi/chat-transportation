@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 # Chat-transportation.
 
 Real-time WebSocket gateway for the distributed chat platform
@@ -46,7 +38,7 @@ Chat-transportation is intentionally kept thin by design to guarantee speed, iso
  - Automatically deleted when the user disconnects — no garbage left behind.
 
 4) Clean separation of concerns
- - Chat-auth only transports data.
+ - Chat-transportation only transports data.
  - Business logic, authorization, storage, validation — handled elsewhere.
 
 Clean Architecture (4-layer structure)
