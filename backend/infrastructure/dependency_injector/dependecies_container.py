@@ -1,13 +1,5 @@
-
-
-
-
-
-
-
-
 from dependency_injector.containers import DeclarativeContainer
-from dependency_injector.providers import Singleton
+from dependency_injector.providers import Object, Singleton
 
 from infrastructure.rabbitmq import RabbitMQManager
 from infrastructure.redis import RedisManager
@@ -23,12 +15,14 @@ class DependenciesContainer(DeclarativeContainer):
     RabbitMQ connection, Redis connection, WebSocket hub, and connection pass manager.
     """
 
-    rabbitmq_manager = Singleton(RabbitMQManager)
+    process_id = Object(None)
+
+    rabbitmq_manager = Singleton(RabbitMQManager, process_id=process_id)
     """
     Manages RabbitMQ connections and publishing/consumption channels.
     """
 
-    redis_manager = Singleton(RedisManager)
+    redis_manager = Singleton(RedisManager, process_id=process_id)
     """
     Handles operations with Redis.
     """

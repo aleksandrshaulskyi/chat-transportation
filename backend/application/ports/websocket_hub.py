@@ -20,3 +20,10 @@ class WebSocketHubPort(ABC):
         websocket by user_id.
         """
         ...
+
+    @abstractmethod
+    async def disconnect_user(self, user_id: int, websocket: WebSocket) -> None:
+        """
+        This method is responsible for disconnecting a user from the websocket shard.
+        """
+        ...

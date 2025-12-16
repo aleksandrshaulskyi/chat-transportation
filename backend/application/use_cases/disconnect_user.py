@@ -2,9 +2,9 @@ from application.ports import RedisManagerPort, WebSocketHubPort
 from application.protocols import WebSocket
 
 
-class ConnectUserUseCase:
+class DisconnectUserUseCase:
     """
-    The use case that orchestrates the connection process of a user.
+    The use case that orchestrates the user disconnect process.
     """
 
     def __init__(
@@ -30,19 +30,19 @@ class ConnectUserUseCase:
 
     async def execute(self) -> None:
         """
-        Connect the user to websocket hub and map connection in Redis.
+        Disconnect the user from websocket hub and unmap connection from Redis.
         """
-        await self.connect_user()
-        await self.map_connection()
+        await self.disconnect_user()
+        await self.remove_mapping()
 
-    async def connect_user(self) -> None:
+    async def disconnect_user(self) -> None:
         """
-        Connect the user to the websocket hub.
+        Disconnect the user from the websocket hub.
         """
-        await self.websocket_hub.connect_user(user_id=self.user_id, websocket=self.websocket)
+        await self.websocket_hub.disconnect_user(user_id=self.user_id, websocket=self.websocket)
 
-    async def map_connection(self) -> None:
+    async def remove_mapping(self) -> None:
         """
-        Map the connection in Redis.
+        Remove the connection from Redis.
         """
-        await self.redis_manager.map_connection(user_id=self.user_id)
+        await self.redis_manager.remove_mapping(user_id=self.user_id)

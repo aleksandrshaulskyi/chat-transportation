@@ -18,6 +18,10 @@ async def consume_and_send_to_user(
     try:
         while True:
             message_data = await message_queue.get()
-            await websocket_hub.send(message_data=message_data)
+
+            sender_id = message_data.get('sender_id')
+            recipient_id = message_data.get('recipient_id')
+
+            await websocket_hub.send(message_data=message_data, user_ids={sender_id, recipient_id})
     except CancelledError:
         raise

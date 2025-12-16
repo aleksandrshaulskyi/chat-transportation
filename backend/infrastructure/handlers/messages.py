@@ -1,16 +1,8 @@
-
-
-
-
-
-
-
-
 from dependency_injector.wiring import inject, Provide
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from application.use_cases import ConnectUserUseCase
+from application.use_cases import ConnectUserUseCase, DisconnectUserUseCase
 from infrastructure.dependencies import retrieve_user_id, retrieve_user_id_from_pass
 from infrastructure.dependency_injector import DependenciesContainer
 from infrastructure.incoming_dtos import IncomingMessageDTO
@@ -31,6 +23,7 @@ async def send_message(
     user_id: int = Depends(retrieve_user_id_from_pass),
     websocket_hub: WebSocketHub = Depends(Provide[DependenciesContainer.websocket_hub]),
     rabbitmq_manager: RabbitMQManager = Depends(Provide[DependenciesContainer.rabbitmq_manager]),
+    redis_manager: RedisManager = Depends(Provide[DependenciesContainer.redis_manager])
 ) -> None:
     """
      Process websocket connections.
@@ -46,33 +39,38 @@ async def send_message(
             user_id=user_id,
             websocket=websocket,
             websocket_hub=websocket_hub,
-            rabbitmq_manager=rabbitmq_manager,
+            redis_manager=redis_manager,
         ).execute()
 
         while True:
-            message_data = await websocket_hub.receive(websocket=websocket)
+            if (message_data := await websocket_hub.receive(websocket=websocket)) is not None:
 
-            try:
-                incoming_message = IncomingMessageDTO(**message_data).model_dump()
-            except ValidationError as exception:
-                await websocket.send_json(
-                    {
-                        'title': 'Data consistency error.',
-                        'details': exception.errors(),
-                    }
-                )
-            else:
+                try:
+                    incoming_message = IncomingMessageDTO(**message_data).model_dump()
+                except ValidationError as exception:
+                    await websocket.send_json(
+                        {
+                            'title': 'Data consistency error.',
+                            'details': exception.errors(),
+                        }
+                    )
+                else:
 
-                controller = SendMessageController(
-                    sender_id=user_id,
-                    incoming_message=incoming_message,
-                    rabbitmq_manager=rabbitmq_manager,
-                )
+                    controller = SendMessageController(
+                        sender_id=user_id,
+                        incoming_message=incoming_message,
+                        rabbitmq_manager=rabbitmq_manager,
+                    )
 
-                await controller.send_message()
+                    await controller.send_message()
     except WebSocketDisconnect:
-        await websocket_hub.disconnect(user_id=user_id)
-        await rabbitmq_manager.stop_consumption_process(user_id=user_id)
+        use_case = DisconnectUserUseCase(
+            user_id=user_id,
+            websocket=websocket,
+            websocket_hub=websocket_hub,
+            redis_manager=redis_manager,
+        )
+        await use_case.execute()
 
 @messages_router.post('/get-connection-pass')
 @inject

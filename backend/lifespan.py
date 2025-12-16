@@ -4,12 +4,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from infrastructure.dependency_injector import DependenciesContainer
-from infrastructure.tasks.consume_and_send_to_user import consume_and_send_to_user
+from infrastructure.tasks import consume_and_send_to_user
+from infrastructure.utils import generate_process_id
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    dependecies_container = DependenciesContainer()
+    process_id = generate_process_id()
+
+    dependecies_container = DependenciesContainer(process_id=process_id)
     dependecies_container.wire(
         modules=[
             'infrastructure.dependencies.authentication',
@@ -19,15 +22,18 @@ async def lifespan(application: FastAPI):
         ],
     )
 
-    await dependecies_container.rabbitmq_manager().start()
+    rabbitmq_manager = dependecies_container.rabbitmq_manager()
 
-    consumption_task = create_task(consume_and_send_to_user())
+    await rabbitmq_manager.start()
+
+    rabbitmq_consumption_task = create_task(rabbitmq_manager.consume())
+    queue_consumption_task = create_task(consume_and_send_to_user())
 
     try:
         yield
     finally:
         try:
-            consumption_task.cancel()
+            rabbitmq_consumption_task.cancel()
         except CancelledError:
             pass
 

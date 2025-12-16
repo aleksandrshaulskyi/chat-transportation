@@ -7,6 +7,21 @@ class RedisManagerPort(ABC):
     """
 
     @abstractmethod
+    async def map_connection(self, user_id: int) -> None:
+        """
+        This method is responsible for the mapping of user id to the process id of a shard
+        which a user is connected to.
+        """
+        ...
+
+    @abstractmethod
+    async def remove_mapping(self, user_id: int) -> None:
+        """
+        This method is responsible for the removal of a previously added mapping.
+        """
+        ...
+
+    @abstractmethod
     async def add_connection_pass(self, connection_pass: str, user_id: int) -> None:
         """
         This method is responsible for adding a connection pass to Redis so that a user id

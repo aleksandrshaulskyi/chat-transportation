@@ -1,5 +1,4 @@
-from asyncio import CancelledError, create_task, QueueFull
-from contextlib import suppress
+from asyncio import CancelledError, QueueFull
 from logging import getLogger
 from json import dumps
 
@@ -24,30 +23,34 @@ class RabbitMQManager(RabbitMQManagerPort):
     - Closing the connection.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, process_id: str) -> None:
         """
         Initialize the manager.
+
+        Args:
+            process_id (str): A string that identifies the process where an instance of this manager currently runs.
         """
+        self.process_id = process_id
         self.connection = None
         self.publishing_channel = None
+        self.consumption_channel = None
         self.websockets_exchange: Exchange = None
         self.database_exchange: Exchange = None
-        self.user_channels = {}
-        self.user_tasks = {}
         self.logger = getLogger(settings.messages_logger_name)
 
     async def start(self) -> None:
         """
-        Start the workflow. Create connection, single publishing channel and exchanges.
+        Start the workflow. 
+        - Create connection, 
+        - Create publishing and consumption channels.
+        - Create exchanges.
         """
         self.connection = await connect_robust(settings.rabbitmq_url)
-        self.publishing_channel = await self.connection.channel(publisher_confirms=True)
 
-        self.websockets_exchange = await self.publishing_channel.declare_exchange(
-            name=settings.websockets_exchange_name,
-            type=ExchangeType.DIRECT,
-            passive=True,
-        )
+        self.publishing_channel = await self.connection.channel(publisher_confirms=True)
+        self.consumption_channel = await self.connection.channel()
+
+        await self.consumption_channel.set_qos(prefetch_count=settings.channel_prefetch_messages_count)
 
         self.database_exchange = await self.publishing_channel.declare_exchange(
             name=settings.database_exchange_name,
@@ -55,29 +58,31 @@ class RabbitMQManager(RabbitMQManagerPort):
             passive=True,
         )
 
-    async def prepare_and_consume(self, user_id: int) -> None:
-        """
-        Prepare user channel for consumption from RabbitMQ, create the ephemeral queue,
-        bind it to the exchange and start consumption process.
+        self.websockets_exchange = await self.consumption_channel.declare_exchange(
+            name=settings.websockets_exchange_name,
+            type=ExchangeType.DIRECT,
+            passive=True,
+        )
 
-        Close the channel and unbind the task upon user disconnect.
+    async def consume(self) -> None:
         """
+        Consume from websockets exchange.
+
+        - Create the process queue.
+        - Bind the queue.
+        - Consume messages from RabbitMQ.
+        """
+        print('CONSUMING')
         try:
-            user_channel = await self.connection.channel()
-            await user_channel.set_qos(prefetch_count=settings.channel_prefetch_messages_count)
-
-            self.user_channels.update({user_id: user_channel})
-
-            user_queue = await user_channel.declare_queue(
-                name=f'websocket.connection.{user_id}',
-                exclusive=True,
-                auto_delete=True,
+            process_queue = await self.consumption_channel.declare_queue(
+                name=f'websocket.{self.process_id}',
                 durable=False,
+                exclusive=True,
             )
 
-            await user_queue.bind(self.websockets_exchange, str(user_id))
+            await process_queue.bind(self.websockets_exchange, self.process_id)
 
-            async with user_queue.iterator() as queue_iterator:
+            async with process_queue.iterator() as queue_iterator:
                 async for message in queue_iterator:
                     try:
                         async with message.process(requeue=False):
@@ -88,36 +93,10 @@ class RabbitMQManager(RabbitMQManagerPort):
         except (AioPikaException, AioRMQException) as exception:
             self.logger.error(
                 'RabbitMQ ephemeral queue error.',
-                extra={'user_id': user_id, 'event_type': f'Ephemeral queue connection error: {exception}'},
+                extra={'user_id': None, 'event_type': f'Queue connection error: {exception}'},
             )
         except CancelledError:
             raise
-   
-    async def start_consumption_process(self, user_id: int) -> None:
-        """
-        Wrapper over prepare_and_consume method that creates an asyncio task.
-
-        Args:
-            user_id (int): The id of a user whom the task is being created for.
-        """
-        task = create_task(self.prepare_and_consume(user_id=user_id))
-        self.user_tasks.update({user_id: task})
-
-    async def stop_consumption_process(self, user_id: int) -> None:
-        """
-        Stop the consumption process.
-
-        Cancel the consumption task if such exists and close the channel if it is not closed.
-        """
-        task = self.user_tasks.pop(user_id)
-        channel = self.user_channels.pop(user_id)
-
-        if task is not None:
-            task.cancel()
-
-        if channel is not None:
-            with suppress(Exception):
-                await channel.close()
 
     def create_message(self, body: bytes) -> Message:
         """

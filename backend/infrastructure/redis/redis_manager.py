@@ -10,12 +10,31 @@ class RedisManager:
     Responsible for orchestrating the workflow with Redis.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, process_id: str) -> None:
         """
         Initialize the manager.
+
+        Args:
+            process_id (str): A string that identifies the process and allows to dispatch messages.
         """
         self.redis = from_url(url=settings.redis_url, decode_responses=True, encoding='utf-8')
-    
+        self.process_id = process_id
+
+    async def map_connection(self, user_id: int) -> None:
+        """
+        Map a connection of a user to the websocket hub shard.
+
+        When connected the k: v pair of user id and process id is stored in Redis
+        for further message routing.
+        """
+        await self.redis.sadd(f'connections:user:{user_id}', self.process_id)
+
+    async def remove_mapping(self, user_id: int) -> None:
+        """
+        Remove previously mapped connection from the Redis.
+        """
+        await self.redis.srem(f'connections:user:{user_id}', self.process_id)
+
     async def add_connection_pass(self, connection_pass: str, user_id: int) -> None:
         """
         Add a key-value pair to Redis so that user_id can be

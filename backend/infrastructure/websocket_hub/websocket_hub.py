@@ -1,9 +1,18 @@
+
+
+
+
+
+
+
+
 from json import JSONDecodeError
+from uuid import uuid4
 
 from fastapi import WebSocket
 
-from infrastructure.monitoring import websocket_hub_active_connections
 from application.ports import WebSocketHubPort
+from infrastructure.monitoring import websocket_hub_active_connections
 
 
 class WebSocketHub(WebSocketHubPort):
@@ -28,8 +37,14 @@ class WebSocketHub(WebSocketHubPort):
             user_id (int): An id of a user that is trying to connect to the websocket endpoint.
             websocket (WebSocket): An instance of FastAPI WebSocket.
         """
+        websocket_id = uuid4().hex
+        websocket.scope.update({'websocket_id': websocket_id})
+
         await websocket.accept()
-        self.connections.update({user_id: websocket})
+
+        connections = self.connections.setdefault(user_id, set())
+        connections.add(websocket)
+
         websocket_hub_active_connections.add(amount=1)
 
     async def receive(self, websocket: WebSocket) -> dict | None:
@@ -47,23 +62,38 @@ class WebSocketHub(WebSocketHubPort):
         except (JSONDecodeError, RuntimeError):
             await websocket.send_json({'title': 'Data integrity error.', 'details': 'Invalid JSON was provided.'})
 
-    async def send(self, message_data: dict) -> None:
+    async def send(self, message_data: dict, user_ids: set) -> None:
         """
         Send a message to a user if such is connected to the hub.
 
         Args:
             message_data (dict): A message in the form of a dictionary.
         """
-        if (websocket := self.connections.get(message_data.get('recipient_id'))) is not None:
-            await websocket.send_json(message_data)
+        print(f'GOT USER IDS {user_ids}')
+        for user_id in user_ids:
+            if (websockets := self.connections.get(user_id)) is not None:
+                print(f'CONNECTED WEBSOCKETS ARE {websockets}')
+                for websocket in websockets:
+                    await websocket.send_json(message_data)
 
-    async def disconnect(self, user_id: int) -> None:
+    async def disconnect_user(self, user_id: int, websocket: WebSocket) -> None:
         """
         Close the websocket connection and remove the mapping from the storage.
 
         Args:
             user_id (int): An id of a user that has disconnected from the websocket endpoint.
+            websocket (WebSocket): An instance of FastAPI WebSocket.
         """
-        if (websocket := self.connections.pop(user_id)) is not None:
-            websocket_hub_active_connections.add(amount=-1)
-            await websocket.close()
+        websocket_id = websocket.scope.get('websocket_id')
+
+        if (websockets := self.connections.get(user_id)) is not None:
+
+            websocket = next(iter(ws for ws in websockets if ws.scope.get('websocket_id') == websocket_id), None)
+
+            if websocket is not None:
+                websockets.remove(websocket)
+
+                if not websockets:
+                    self.connections.pop(user_id)
+
+                websocket_hub_active_connections.add(amount=-1)
